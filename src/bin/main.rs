@@ -31,19 +31,21 @@ fn main() -> ! {
     let peripherals = esp_hal::init(config);
 
     const d33 = 295 * 10^(-12); // Piezo constant
-    const m = 0.1; // This is the proof mass in kg
+    const mass = 0.1; // This is the proof mass in kg
+    const Vcc = 5; // V
+    const Cf = 0.6*10^(-9); // 0.6nF
+    const scalor = 2/3; // Run the 0-5V output through the voltage divider so it can be fed into the microcontroller, 5 -> 3.33V
 
     let adc_pin = peripherals.GPIO4;
     let mut adc1_config = AdcConfig::new();
     let mut pin = adc1_config.enable_pin(adc_pin, Attenuation::_11dB); // Need to double check this attenuation level stuff https://esp32.implrust.com/core-concepts/adc/adc-in-esp32.html
     let mut adc1 = Adc::new(peripherals.ADC1, adc1_config);
-    let scaler = 2/3; // Run the 0-5V output through the voltage divider so it can be fed into the microcontroller
 
     loop {
         let pin_value: u16 = nb::block!(adc1.read_oneshot(&mut pin)).unwrap(); //V, We read the value from the pin here, will need to scale it likely
-        esp_println::println!("Raw ADC output:", pin_value); // Print it
-        v_out = pin_value / scaler; // Scale the voltage back
-
-        // Need to write some code here
+        esp_println::println!("Raw ADC output: ", pin_value); // Print it
+        let v_out = pin_value / scalor; // Scale the voltage back
+        acceleration = (Cf*((Vcc/2)-v_out))/(d33*mass); // The actual acceleration calculation
+        esp_println::println!("Acceleration: ", acceleration); // Print out the acceleration
     }
 }
