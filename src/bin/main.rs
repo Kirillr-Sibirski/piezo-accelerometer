@@ -45,7 +45,7 @@ fn main() -> ! {
         let pin_value: u16 = nb::block!(adc1.read_oneshot(&mut pin)).unwrap(); //V, We read the value from the pin here, will need to scale it likely
         esp_println::println!("Raw ADC output: ", pin_value); // Print it
         let v_out = pin_value / scalor; // Scale the voltage back
-        acceleration = (Cf*((Vcc/2)-v_out))/(d33*mass); // The actual acceleration calculation
+        let acceleration = (Cf*((Vcc/2)-v_out))/(d33*mass); // The actual acceleration calculation
         esp_println::println!("Acceleration: ", acceleration); // Print out the acceleration
     }
 }
