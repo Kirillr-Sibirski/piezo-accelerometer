@@ -7,7 +7,7 @@ Vcc = 5; % V
 
 % Variables
 Cf = (600)*10^(-12); % Lower freq, determines output voltage
-Rf = 25 *10^6; % Lower freq
+Rf = 25*10^6; % Lower freq
 
 Ri = 15*10^3; % Upper freq 15k ohm
 
@@ -19,9 +19,9 @@ fH = 1/(2*pi*Ri*(Cp+Cc));
 fprintf("The lowest frequency is %.2f Hz and the highest is %.2f Hz \n", fL, fH);
 
 % Calculate the output voltage
-d33 = 300 * 10^(-12); % piezoelectric constant calculated at 100Hz, for some reason not linear at all but ffs idk why
+d33 = 300 * 10^(-12); % piezoelectric constant (need to actually characterize it)
 m = 0.1; % proof mass, kg
-max_expected_a = 2*9.81; % 5g 
+max_expected_a = 5*9.81; % 5g 
 qp = d33 * m * max_expected_a; % max expected charge
 V0 = -(qp/Cf) + (Vcc/2); % voltage floor
 
@@ -37,8 +37,8 @@ fprintf("The calculated output voltage at %.2f m/s^2 (2g) is %.2f V\n", referenc
 
 % Reverse d33 calculator
 c_total = Cc+Cp+(15*10^(-12)); % 15nF is the probe capacitance
-acc = 19.6; % m/s^2
-v_out = 265*10^(-3); % V_peak
+acc = ; % m/s^2
+v_out = 180*10^(-3); % V
 d33_rev = -(v_out*c_total)/(acc*m);
 fprintf("Reverse calculated d33 is %.2f * 10^(-12) m/V", d33_rev/(10^(-12)));
 

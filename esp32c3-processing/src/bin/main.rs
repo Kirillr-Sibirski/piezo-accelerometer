@@ -6,14 +6,13 @@
     holding buffers for the duration of a data transfer."
 )]
 
-use esp_hal::clock::CpuClock;
-use esp_hal::delay::Delay;
-use esp_hal::gpio::{Level, Output, OutputConfig};
-use esp_hal::main;
+use esp_hal::{
+    clock::CpuClock,
+    delay::Delay,
+    gpio::{Level, Output, OutputConfig},
+    main, peripherals,
+};
 use esp_println as _;
-
-// ADC
-use esp_hal::analog::adc::{Adc, AdcConfig, Attenuation};
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -30,22 +29,33 @@ fn main() -> ! {
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
 
-    const d33 = 295 * 10^(-12); // Piezo constant
-    const mass = 0.1; // This is the proof mass in kg
-    const Vcc = 5; // V
-    const Cf = 0.6*10^(-9); // 0.6nF
-    const scalor = 2/3; // Run the 0-5V output through the voltage divider so it can be fed into the microcontroller, 5 -> 3.33V
+    const D33: f64 = 300.0 * 1e-12; // Piezo constant (use scientific notation)
+    const MASS: f64 = 0.1; // Proof mass in kg
+    const VCC: f64 = 5.0; // V
+    const CF: f64 = 600e-12; // 600nF
+    const SCALAR: f64 = 2.0 / 5.0; // Voltage divider scalin
 
     let adc_pin = peripherals.GPIO4;
     let mut adc1_config = AdcConfig::new();
     let mut pin = adc1_config.enable_pin(adc_pin, Attenuation::_11dB); // Need to double check this attenuation level stuff https://esp32.implrust.com/core-concepts/adc/adc-in-esp32.html
     let mut adc1 = Adc::new(peripherals.ADC1, adc1_config);
 
+    let delay = Delay::new();
+
     loop {
         let pin_value: u16 = nb::block!(adc1.read_oneshot(&mut pin)).unwrap(); //V, We read the value from the pin here, will need to scale it likely
-        esp_println::println!("Raw ADC output: ", pin_value); // Print it
-        let v_out = pin_value / scalor; // Scale the voltage back
-        let acceleration = (Cf*((Vcc/2)-v_out))/(d33*mass); // The actual acceleration calculation
-        esp_println::println!("Acceleration: ", acceleration); // Print out the acceleration
+        let v_measured = (pin_value as f64 / 4095.0) * 3.3;
+
+        let v_out = v_measured / SCALAR; // Scale the voltage back
+        let acceleration = (CF * ((VCC / 2.0) - v_out)) / (D33 * MASS); // The actual acceleration calculation
+        esp_println::println!(
+            "Raw ADC: {}, V_measured: {:.3}V, V_out: {:.3}V, Accel: {:.2}",
+            pin_value,
+            v_measured,
+            v_out,
+            acceleration
+        );
+
+        delay.delay_millis(100); // Sample every 100ms
     }
 }
