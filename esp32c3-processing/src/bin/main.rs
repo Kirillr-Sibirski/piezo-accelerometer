@@ -7,6 +7,7 @@
 )]
 
 use esp_hal::{
+    analog::adc::{Adc, AdcConfig, Attenuation},
     clock::CpuClock,
     delay::Delay,
     gpio::{Level, Output, OutputConfig},
@@ -32,7 +33,7 @@ fn main() -> ! {
     const D33: f64 = 300.0 * 1e-12; // Piezo constant (use scientific notation)
     const MASS: f64 = 0.1; // Proof mass in kg
     const VCC: f64 = 5.0; // V
-    const CF: f64 = 600e-12; // 600nF
+    const CF: f64 = 600e-12; // 600pF
     const SCALAR: f64 = 2.0 / 5.0; // Voltage divider scalin
 
     let adc_pin = peripherals.GPIO4;
@@ -40,7 +41,7 @@ fn main() -> ! {
     let mut pin = adc1_config.enable_pin(adc_pin, Attenuation::_11dB); // Need to double check this attenuation level stuff https://esp32.implrust.com/core-concepts/adc/adc-in-esp32.html
     let mut adc1 = Adc::new(peripherals.ADC1, adc1_config);
 
-    let delay = Delay::new();
+    let delay = Delay::new(&esp_hal::clock::Clocks::get());
 
     loop {
         let pin_value: u16 = nb::block!(adc1.read_oneshot(&mut pin)).unwrap(); //V, We read the value from the pin here, will need to scale it likely
@@ -48,13 +49,15 @@ fn main() -> ! {
 
         let v_out = v_measured / SCALAR; // Scale the voltage back
         let acceleration = (CF * ((VCC / 2.0) - v_out)) / (D33 * MASS); // The actual acceleration calculation
-        esp_println::println!(
-            "Raw ADC: {}, V_measured: {:.3}V, V_out: {:.3}V, Accel: {:.2}",
-            pin_value,
-            v_measured,
-            v_out,
-            acceleration
-        );
+        esp_println::println!("{}", acceleration); // Print the raw acceleration data later to be proccessed by the Python script
+        // Some debugging code below
+        // esp_println::println!(
+        //     "Raw ADC: {}, V_measured: {:.3}V, V_out: {:.3}V, Accel: {:.2}",
+        //     pin_value,
+        //     v_measured,
+        //     v_out,
+        //     acceleration
+        // );
 
         delay.delay_millis(100); // Sample every 100ms
     }

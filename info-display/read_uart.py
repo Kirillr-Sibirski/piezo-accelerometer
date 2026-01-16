@@ -2,7 +2,7 @@
 # requires-python = ">=3.14"
 # dependencies = [
 #     "matplotlib>=3.10.8",
-#     "serial>=0.0.97",
+#     "pyserial>=3.5",
 # ]
 # ///
 
@@ -22,13 +22,13 @@ try:
         line = ser.readline().decode().strip()  # read one line from UART
         if line:
             try:
-                value = int(line)
+                value = float(line)
                 values.append(value)
                 if len(values) > 100:  # keep last 100 points
                     values.pop(0)
                 ax.clear()
                 ax.plot(values)
-                ax.set_ylim(0, 4096)  # ADC full scale
+                # ax.set_ylim(0, 4096)  # ADC full scale
                 plt.pause(0.01)
             except ValueError:
                 pass  # ignore bad lines
