@@ -1,6 +1,7 @@
 # /// script
 # requires-python = ">=3.14"
 # dependencies = [
+#     "esp-idf-monitor>=1.9.0",
 #     "matplotlib>=3.10.8",
 #     "pyserial>=3.5",
 # ]
