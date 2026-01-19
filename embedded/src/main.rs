@@ -1,9 +1,9 @@
 use esp_idf_hal::adc::attenuation;
-use esp_idf_hal::adc::calibration::{AdcCalibration, LineCalibration};
 use esp_idf_hal::adc::oneshot::{config::AdcChannelConfig, AdcChannelDriver, AdcDriver};
 use esp_idf_hal::peripherals::Peripherals;
+use esp_idf_sys::{self as sys, *};
 use std::thread;
-use std::time::Duration;
+use std::time::Duration; // Import for raw C APIs
 
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
@@ -14,28 +14,43 @@ fn main() -> anyhow::Result<()> {
 
     let config = AdcChannelConfig {
         attenuation: attenuation::DB_11,
-        calibration: true,
         ..Default::default()
     };
 
-    let mut adc_pin: AdcChannelDriver<'_, _, LineCalibration> =  // Specify LineCalibration type
-        AdcChannelDriver::new(&mut adc, peripherals.pins.gpio4, &config)?;
+    let mut adc_pin = AdcChannelDriver::new(&mut adc, peripherals.pins.gpio4, &config)?;
 
-    const D33: f64 = 300.0 * 1e-12;
-    const MASS: f64 = 0.1;
-    const VCC: f64 = 5.0; // Partly determines the offset
-    const CF: f64 = 600e-9;
-    const SCALAR: f64 = 2.0 / 5.0;
+    // Linear fit graph
+    const gradient: f64 = -0.00976875;
+    const y-intercept: f64 = 4.023748;
+
+    // Set up calibration characteristics (done once outside the loop)
+    let mut chars: esp_adc_cal_characteristics_t = unsafe { std::mem::zeroed() };
+    let cal_type = unsafe {
+        esp_adc_cal_characterize(
+            sys::adc_unit_t_ADC_UNIT_1,
+            sys::adc_atten_t_ADC_ATTEN_DB_11,
+            sys::adc_bits_width_t_ADC_WIDTH_BIT_12, // Assuming 12-bit resolution (common for ESP32)
+            0, // Use eFuse if available, else default Vref (1100mV)
+            &mut chars,
+        )
+    };
+
+    // Optional: Check if calibration is supported/useful
+    if cal_type == sys::esp_adc_cal_value_t_ESP_ADC_CAL_VAL_NOT_SUPPORTED {
+        println!("Warning: ADC calibration not supported on this chip; using raw estimates.");
+        // You could fall back to manual scaling here if needed
+    }
 
     loop {
-        // Read calibrated voltage directly (in mV)
-        let v_measured_mv: i32 = adc_pin.read_voltage()?;
-        let v_measured = (v_measured_mv as f64) / 1000.0; // Convert mV to V
+        let raw = adc_pin.read()?;
 
-        let v_out = v_measured / SCALAR;
-        let acceleration = (CF * ((VCC / 2.0) - v_out)) / (D33 * MASS);
+        // Convert raw to calibrated voltage (in mV)
+        let v_measured = unsafe { esp_adc_cal_raw_to_voltage(raw as u32, &chars) };
 
-        println!("{}", acceleration);
+        let v_out = v_measured / SCALAR; // Scale it by the voltage divider factor
+        let acceleration = gradient*v_out+y-intercept;
+
+        println!("{:.2}", acceleration);
 
         thread::sleep(Duration::from_millis(100));
     }
