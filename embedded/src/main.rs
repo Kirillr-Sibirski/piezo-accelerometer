@@ -25,7 +25,8 @@ fn main() -> anyhow::Result<()> {
     const SCALAR: f64 = 2.0 / 5.0;
 
     loop {
-        let mut pin_value = adc.read(&mut adc_pin)?;
+        // Use adc_pin.read() instead of adc.read(&mut adc_pin)
+        let pin_value = adc_pin.read()?;
         let v_measured = (pin_value as f64 / 4095.0) * 3.3;
         let v_out = v_measured / SCALAR;
         let acceleration = (CF * ((VCC / 2.0) - v_out)) / (D33 * MASS);
