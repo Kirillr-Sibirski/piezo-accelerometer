@@ -33,12 +33,11 @@ fprintf('acceleration (g) = %.8f * voltage (mV) + %.6f\n', m, b);
 fprintf('\nR² = %.6f (fit quality)\n', R_squared);
 fprintf('========================================\n');
 
-% Plot
 figure;
-subplot(1,2,1);
+% subplot(1,2,1);
 hold on;
 plot(freq, ref_a, 'r-o', 'DisplayName', 'Reference', 'LineWidth', 1.5);
-plot(freq, act_a_calibrated, 'b-o', 'DisplayName', 'Your Accel (calibrated)', 'LineWidth', 1.5);
+plot(freq, act_a_calibrated, 'b-o', 'DisplayName', 'Our Accel (calibrated)', 'LineWidth', 1.5);
 grid on;
 xlabel('Frequency (Hz)');
 ylabel('Peak Acceleration (g)');
@@ -46,14 +45,15 @@ title('Calibrated Comparison');
 legend;
 hold off;
 
-subplot(1,2,2);
+figure;
+% subplot(1,2,2);
 scatter(act_v, ref_a, 50, 'filled');
 hold on;
 v_range = linspace(min(act_v), max(act_v), 100);
 a_fit = m * v_range + b;
 plot(v_range, a_fit, 'r-', 'LineWidth', 2);
 grid on;
-xlabel('Your Voltage (mV)');
+xlabel('Voltage (mV)');
 ylabel('Reference Acceleration (g)');
 title(sprintf('Calibration Curve\na = %.6f*V + %.4f', m, b));
 hold off;
