@@ -7,15 +7,15 @@
 # ///
 
 import serial
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 # Configuring the serial port
 ser = serial.Serial('/dev/cu.usbmodem1101', 115200) # Might need to change this
 
 values = []
 
-# plt.ion()  # interactive mode
-# fig, ax = plt.subplots()
+plt.ion()  # interactive mode
+fig, ax = plt.subplots()
 
 try:
     while True:
@@ -24,13 +24,13 @@ try:
             try:
                 # value = float(line)
                 print(line)
-                # values.append(value)
-                # if len(values) > 100:  # keep last 100 points
-                #     values.pop(0)
-                # ax.clear()
-                # ax.plot(values)
-                # # ax.set_ylim(0, 4096)  # ADC full scale
-                # plt.pause(0.01)
+                values.append(value)
+                if len(values) > 100:  # keep last 100 points
+                    values.pop(0)
+                ax.clear()
+                ax.plot(values)
+                # ax.set_ylim(0, 4096)  # ADC full scale
+                plt.pause(0.01)
             except ValueError:
                 pass  # ignore bad lines
 except KeyboardInterrupt:

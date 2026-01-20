@@ -1,19 +1,15 @@
 use esp_idf_hal::adc::attenuation;
 use esp_idf_hal::adc::oneshot::{config::AdcChannelConfig, AdcChannelDriver, AdcDriver};
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_sys::{self as sys, *};
+// use esp_idf_sys::{self as sys, *};
 use std::thread;
 use std::time::Duration;
 
 fn main() -> anyhow::Result<()> {
-    esp_idf_svc::sys::link_patches();
+    esp_idf_sys::link_patches();
 
     let peripherals = Peripherals::take().unwrap(); // Use unwrap for simplicity during debugging
-    println!("=== RUST ADC EXAMPLE STARTED ===");
-    println!("GPIO4 connected to sensor");
-
     let mut adc = AdcDriver::new(peripherals.adc1).unwrap();
-    println!("ADC1 initialized");
 
     let config = AdcChannelConfig {
         attenuation: attenuation::DB_11,
@@ -21,40 +17,49 @@ fn main() -> anyhow::Result<()> {
     };
 
     let mut adc_pin = AdcChannelDriver::new(&mut adc, peripherals.pins.gpio4, &config).unwrap();
-    println!("ADC pin (GPIO4) configured - READY TO READ");
 
-    // Calibration setup
-    // let mut chars: esp_adc_cal_characteristics_t = unsafe { std::mem::zeroed() };
-    // let cal_type = unsafe {
-    //     esp_adc_cal_characterize(
-    //         sys::adc_unit_t_ADC_UNIT_1,
-    //         sys::adc_atten_t_ADC_ATTEN_DB_11,
-    //         sys::adc_bits_width_t_ADC_WIDTH_BIT_12,
-    //         0,
-    //         &mut chars,
-    //     )
-    // };
+    const BIAS_VOLTAGE: f64 = 1140.0;
+    const GRADIENT: f64 = -0.00976875;
+    const Y_INTERCEPT: f64 = 4.023748;
+    const SAMPLE_COUNT: usize = 100;
+    const SAMPLE_DELAY_US: u64 = 100; // 10kHz sampling
 
-    // println!("Calibration type: {:?}", cal_type);
-
-    // loop {
-    //     let raw = adc_pin.read().unwrap();
-    //     println!("RAW ADC: {}", raw); // Print raw value first for debugging
-
-    //     let v_measured: f64 = unsafe { esp_adc_cal_raw_to_voltage(raw as u32, &chars) } as f64;
-    //     println!("VOLTAGE: {:.1} mV", v_measured);
-
-    //     let v_peak: f64 = (v_measured - 1140.0).abs();
-    //     let v_pp = v_peak * 2.0;
-    //     let acceleration = -0.00976875 * v_pp + 4.023748;
-
-    //     println!("ACCEL: {:.2} g", acceleration);
-
-    //     thread::sleep(Duration::from_millis(500)); // Slower for debugging
-    // }
     loop {
-        let raw = adc_pin.read().unwrap();
-        println!("RAW ADC: {}", raw);
+        // Collect multiple samples to find peak
+        let mut max_voltage = 0.0f64;
+        let mut min_voltage = f64::MAX;
+
+        for _ in 0..SAMPLE_COUNT {
+            let voltage_mv = adc_pin.read()? as f64; // Already calibrated to mV
+            max_voltage = max_voltage.max(voltage_mv);
+            min_voltage = min_voltage.min(voltage_mv);
+            thread::sleep(Duration::from_micros(SAMPLE_DELAY_US));
+        }
+
+        let avg_voltage = (max_voltage + min_voltage) / 2.0;
+        println!(
+            "Avg voltage: {:.2} mV (range: {:.2} - {:.2})",
+            avg_voltage, min_voltage, max_voltage
+        );
+
+        let max_ac = (max_voltage - BIAS_VOLTAGE).abs();
+        let min_ac = (min_voltage - BIAS_VOLTAGE).abs();
+
+        // Calculate peak-to-peak
+        let v_pp = max_ac.max(min_ac) * 2.0;
+
+        // Calculate acceleration
+        let acceleration = GRADIENT * v_pp + Y_INTERCEPT;
+        println!(
+            "Acceleration: {:.2} g (Vpp: {:.2} mV)\n",
+            acceleration, v_pp
+        );
+
         thread::sleep(Duration::from_millis(500));
     }
+    // loop {
+    //     let raw = adc_pin.read().unwrap();
+    //     println!("RAW ADC: {}", raw);
+    //     thread::sleep(Duration::from_millis(500));
+    // }
 }
