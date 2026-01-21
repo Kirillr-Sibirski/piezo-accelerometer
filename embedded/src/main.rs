@@ -21,38 +21,16 @@ fn main() -> anyhow::Result<()> {
     const BIAS_VOLTAGE: f64 = 1140.0;
     const GRADIENT: f64 = -0.00976875;
     const Y_INTERCEPT: f64 = 4.023748;
-    const SAMPLE_COUNT: usize = 100;
-    const SAMPLE_DELAY_US: u64 = 100; // 10kHz sampling
 
     loop {
-        // Collect multiple samples to find peak
-        let mut max_voltage = 0.0f64;
-        let mut min_voltage = f64::MAX;
-
-        for _ in 0..SAMPLE_COUNT {
-            let voltage_mv = adc_pin.read()? as f64; // Already calibrated to mV
-            max_voltage = max_voltage.max(voltage_mv);
-            min_voltage = min_voltage.min(voltage_mv);
-            thread::sleep(Duration::from_micros(SAMPLE_DELAY_US));
-        }
-
-        let avg_voltage = (max_voltage + min_voltage) / 2.0;
-        println!(
-            "Avg voltage: {:.2} mV (range: {:.2} - {:.2})",
-            avg_voltage, min_voltage, max_voltage
-        );
-
-        let max_ac = (max_voltage - BIAS_VOLTAGE).abs();
-        let min_ac = (min_voltage - BIAS_VOLTAGE).abs();
-
-        // Calculate peak-to-peak
-        let v_pp = max_ac.max(min_ac) * 2.0;
-
-        // Calculate acceleration
+        let voltage_mv = adc_pin.read()? as f64;
+        let v_peak = (voltage_mv - BIAS_VOLTAGE).abs();
+        let v_pp = v_peak * 2.0;
         let acceleration = GRADIENT * v_pp + Y_INTERCEPT;
+
         println!(
-            "Acceleration: {:.2} g (Vpp: {:.2} mV)\n",
-            acceleration, v_pp
+            "Voltage: {:.2} mV, Accel: {:.2} g",
+            voltage_mv, acceleration
         );
 
         thread::sleep(Duration::from_millis(500));
