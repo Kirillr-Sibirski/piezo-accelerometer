@@ -18,21 +18,40 @@ fn main() -> anyhow::Result<()> {
 
     let mut adc_pin = AdcChannelDriver::new(&mut adc, peripherals.pins.gpio4, &config).unwrap();
 
-    const BIAS_VOLTAGE: f64 = 1140.0;
-    const GRADIENT: f64 = -0.00976875;
-    const Y_INTERCEPT: f64 = 4.023748;
+    const SAMPLE_DURATION_MS: u64 = 5000; // Sample for 5 seconds
+    const SAMPLE_DELAY_US: u64 = 100; // 10kHz sampling rate
 
     loop {
-        let voltage_mv = adc_pin.read()? as f64;
-        let v_peak = (voltage_mv - BIAS_VOLTAGE).abs();
-        let v_pp = v_peak * 2.0;
-        let acceleration = GRADIENT * v_pp + Y_INTERCEPT;
+        println!("Sampling for 5 seconds...");
+
+        let mut max_raw = 0u16;
+        let mut min_raw = u16::MAX;
+        let start = std::time::Instant::now();
+
+        // Sample rapidly for 5 seconds to find peaks
+        while start.elapsed().as_millis() < SAMPLE_DURATION_MS as u128 {
+            let raw = adc_pin.read()?;
+            max_raw = max_raw.max(raw);
+            min_raw = min_raw.min(raw);
+            thread::sleep(Duration::from_micros(SAMPLE_DELAY_US));
+        }
+
+        // Convert to millivolts
+        let max_mv = (max_raw as f64 / 4095.0) * 3300.0; // 5400
+        let min_mv = (min_raw as f64 / 4095.0) * 3300.0;
+        let v_pp = max_mv - min_mv;
+
+        // Apply calibration formula: a = 9.6405*e^(0.0002*V) + -50.1697*e^(-0.0480*V)
+        let term1 = 9.6405 * (0.0002 * v_pp).exp();
+        let term2 = -50.1697 * (-0.0480 * v_pp).exp();
+        let acceleration = term1 + term2;
 
         println!(
-            "Voltage: {:.2} mV, Accel: {:.2} g",
-            voltage_mv, acceleration
+            "Min: {:.0}mV, Max: {:.0}mV, Vpp: {:.0}mV, Accel: {:.2}g\n",
+            min_mv, max_mv, v_pp, acceleration
         );
 
+        // Small pause before next measurement cycle
         thread::sleep(Duration::from_millis(500));
     }
     // loop {
